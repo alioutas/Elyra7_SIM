@@ -1,6 +1,7 @@
 #%%
 import czifile
 import napari
+import re
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
@@ -30,28 +31,49 @@ img_names = sorted(list(set(img_names)))
 
 channels = sorted(list(set([img_file.split('/')[-1].split('_')[1] for img_file in img_files])))
 
+#%%
+for img_name in img_names:
+    for channel in channels:
+        # find the img_name+'_'+channel+'_' within the img_files
+        img_file = [img_file for img_file in img_files if img_name+'_'+channel+'_' in img_file]
+        if len(img_file) == 0:
+            next
+        else:
+            if re.search('405', img_file[0]):
+                print(img_file)
+            else:
+                print('Vete a casa')
+        # if img_file == 405 then run the following code
+        # if '405' in img_file:
+        #     print(img_file)
+            # img = czifile.imread(img_file[0])
+            # print(img.shape)
+            # reshape the image to the correct dimensions (time, x, y)
+            # img_ = img[0,0,0,:,0,:,:,:]
+            # img_.shape
 
+            # plt.imshow(img_[0,0,:,:])
 
+######################## TODO:
+# 1. finish up the above loop so that when channel is 405 segment and quantify the mask mean intentisites
+# 2. Fiinish up the normalization of the plots below
 
 #%%
 img = czifile.imread('/Volumes/Genetics/Wu_Lab-Vutara/Experiments/Eunice/Elyra_Eunice/WGI/bleaching_test/2xSSCT_4channels_WGI2.0_20240223/001_405_2xSSCT_buffer_bleachingtest_2024_02_23__14_06_09.czi')
 print(img.shape)
 # %%
+# reshape the image to the correct dimensions (time, x, y)
 img_ = img[0,0,0,:,0,:,:,0]
-img_.reset_index(drop=True, inplace=True)
+# img_.reset_index(drop=True, inplace=True)
 img_.shape
 
 #%%
-img_100 = img_[:100,:,:]
-
-
-# %%
-viewer, image_layer = napari.imshow(img_100, rgb=False)
+# visualize the first 100 time points
+# img_100 = img_[:100,:,:]
+# viewer, image_layer = napari.imshow(img_100, rgb=False)
 
 # %%
-# theshold my first image to get a mask with otsu
-
-#%%
+# theshold the first image to get a mask with otsu
 image = img[0,0,0,0,0,:,:,0]
 thresh = threshold_otsu(image)
 bw = closing(image> thresh, square(3))
@@ -75,18 +97,20 @@ label_image = label(label_image > 0)
 
 # to make the background transparent, pass the value of `bg_label`,
 # and leave `bg_color` as `None` and `kind` as `overlay`
-image_label_overlay = label2rgb(label_image, image=image, bg_label=0)
+image_label_overlay = label2rgb(label_image, image=image, bg_label=0, kind='overlay')
 fig, ax = plt.subplots(figsize=(10, 6))
-ax.imshow(image_label_overlay)
+ax.imshow(image, cmap='gray')
+ax.imshow(image_label_overlay, alpha = 0.5)
 
-for region in regionprops(label_image):
-    # take regions with large enough areas
-    if region.area >= 100:
-        # draw rectangle around segmented coins
-        minr, minc, maxr, maxc = region.bbox
-        rect = mpatches.Rectangle((minc, minr), maxc - minc, maxr - minr,
-                                  fill=False, edgecolor='red', linewidth=2)
-        ax.add_patch(rect)
+
+# for region in regionprops(label_image):
+#     # take regions with large enough areas
+#     if region.area >= 100:
+#         # draw rectangle around segmented coins
+#         minr, minc, maxr, maxc = region.bbox
+#         rect = mpatches.Rectangle((minc, minr), maxc - minc, maxr - minr,
+#                                   fill=False, edgecolor='red', linewidth=2)
+#         ax.add_patch(rect)
 
 ax.set_axis_off()
 plt.tight_layout()
@@ -135,3 +159,4 @@ for mask, group in df_int_time.groupby('mask'):
     ax.legend(title = 'Mask')
 plt.show()
 # %%
+
