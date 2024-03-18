@@ -30,7 +30,7 @@ Each channel was saved in a separate file for 1, and 3. For 2 the images were sa
 3. [x] Select for 405
 4. [x] Make a mask with OTSU threshold for each nucleus
 5. [x] Filter anything that is below 500pixels
-6. [ ] Measure the mean intensity of channels 405, 488, 561, 642 for each nuleus
+6. [x] Measure the mean intensity of channels 405, 488, 561, 642 for each nuleus
 7. [ ] Save the results in a csv file
 8. [ ] Plot the results for comparison to choose the best buffer for imaging
 

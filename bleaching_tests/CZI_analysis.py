@@ -12,6 +12,11 @@ from skimage.segmentation import clear_border
 from skimage.measure import label, regionprops
 from skimage.morphology import closing, square
 from skimage.color import label2rgb
+from skimage.measure import find_contours
+from skimage.segmentation import watershed
+from skimage.feature import peak_local_max
+import scipy.ndimage as ndi
+
 
 import numpy as np
 import pandas as pd
@@ -44,11 +49,12 @@ channels = sorted(list(set([img_file.split('/')[-1].split('_')[1] for img_file i
 #%%
 #Calculate fluorescence intensity
 time_point = []
-mask = []
+mask_label = []
 avg_int = []
 median_int = []
 ch = []
 im_name = []
+area = []
 
 # loop over all images and channels
 for img_name in tqdm(img_names):
@@ -67,26 +73,40 @@ for img_name in tqdm(img_names):
                 img = czifile.imread(img_file[0])
                 img_ = img[0,0,0,:,0,:,:,:] # last dimension is channel
                 image = img[0, 0, 0, 0, 0, :, :, 0]
-                thresh = threshold_otsu(image)
-                bw = closing(image > thresh, square(3))
-                
+                thresh = threshold_otsu(ndi.gaussian_filter(image, 6))
+                bw = closing(ndi.gaussian_filter(image, 6) > thresh, square(3))
+
                 # remove artifacts connected to image border
                 cleared = clear_border(bw)
                 # label image regions
                 label_image = label(cleared)
-                
+
                 # Find regions < 500 pixels and remove them
                 for region in regionprops(label_image):
                     if region.area < 500:
                         label_image[label_image == region.label] = 0
-                
+
                 label_image = label(label_image > 0)
+
+
+                # Apply watershed segmentation to split adjucent nuclei
+                distance = ndi.distance_transform_edt(label_image)
+                coords = peak_local_max(distance, min_distance=200, labels=label_image)
+                mask = np.zeros(distance.shape, dtype=bool)
+                mask[tuple(coords.T)] = True
+                markers, _ = ndi.label(mask)
+                label_image = watershed(-distance, markers, mask=label_image)
                 
                 # plot image and masks
                 image_label_overlay = label2rgb(label_image, image=image, bg_label=0, kind='overlay')
                 fig, ax = plt.subplots(figsize=(10, 6))
                 ax.imshow(image, cmap='gray')
                 ax.imshow(image_label_overlay, alpha=0.5)
+                for region in regionprops(label_image):
+                    # Get contour coordinates
+                    contours = find_contours(label_image == region.label, 0.5)
+                    for contour in contours:
+                        ax.plot(contour[:, 1], contour[:, 0], linewidth=2, c='red')
                 ax.set_axis_off()
                 plt.tight_layout()
                 plt.show()
@@ -102,15 +122,33 @@ for img_name in tqdm(img_names):
                         
                         # Append the data to the lists
                         time_point.append(t)
-                        mask.append(region.label)
+                        mask_label.append(region.label)
                         avg_int.append(np.mean(region_intensity_values))
                         median_int.append(np.median(region_intensity_values))
                         ch.append(channel)
                         im_name.append(img_name)
+                        area.append(region.area)
             else:
                 #use the mask created from the 405 channel to quantify the mean intensity of the other channels                # read image
                 img = czifile.imread(img_file[0])
-                img_ = img[0,0,0,:,0,:,:,:] # last dimension is channel
+                img_ = img[0,0,0,:,0,:,:,0] # last dimension is channel
+                
+                
+                # plot image and masks
+                fig, ax = plt.subplots(figsize=(10, 6))
+                ax.imshow(img_[0,:,:]*10, cmap='gray')
+                # draw the masks on the image as a read contour line
+                for region in regionprops(label_image):
+                    # Get contour coordinates
+                    contours = find_contours(label_image == region.label, 0.5)
+                    for contour in contours:
+                        ax.plot(contour[:, 1], contour[:, 0], linewidth=2, c='red')
+                ax.set_axis_off()
+                plt.tight_layout()
+                plt.show()
+
+
+
                 # loop over all time points
                 for t in range(img_.shape[0]): 
                     intensity_image = img_[t, :, :]
@@ -122,11 +160,12 @@ for img_name in tqdm(img_names):
                         
                         # Append the data to the lists
                         time_point.append(t)
-                        mask.append(region.label)
+                        mask_label.append(region.label)
                         avg_int.append(np.mean(region_intensity_values))
                         median_int.append(np.median(region_intensity_values))
                         ch.append(channel)
                         im_name.append(img_name)
+                        area.append(region.area)
         # if img_file == 405 then run the following code
         # if '405' in img_file:
         #     print(img_file)
@@ -171,20 +210,33 @@ df_int_time = pd.DataFrame({
               'condition': condition,
               'time_point': time_point, 
               'channel': ch,
-              'mask': mask, 
+              'mask': mask_label, 
               'avg_int': avg_int, 
-              'median_int': median_int})
+              'median_int': median_int,
+              'area': area})
 # df_int_time['norm_avg_int'] = (df_int_time['avg_int'] - df_int_time.groupby('mask').avg_int.transform('min')) / (df_int_time.groupby('mask').avg_int.transform('max') - df_int_time.groupby('mask').avg_int.transform('min'))
 # df_int_time['norm_median_int'] = (df_int_time['median_int'] - df_int_time.groupby('mask').median_int.transform('min')) / (df_int_time.groupby('mask').median_int.transform('max') - df_int_time.groupby('mask').median_int.transform('min'))
-df_int_time['norm_avg_int'] = (df_int_time['avg_int'] - df_int_time.groupby('mask').avg_int.transform('min')) / (df_int_time.groupby('mask').avg_int.transform('max') - df_int_time.groupby('mask').avg_int.transform('min'))
-df_int_time['norm_median_int'] = (df_int_time['median_int'] - df_int_time.groupby('mask').median_int.transform('min')) / (df_int_time.groupby('mask').median_int.transform('max') - df_int_time.groupby('mask').median_int.transform('min'))
+df_int_time['norm_avg_int'] = (df_int_time['avg_int'] - df_int_time.groupby(['mask', 'image', 'channel', 'condition']).avg_int.transform('min')) / (df_int_time.groupby(['mask', 'image', 'channel', 'condition']).avg_int.transform('max') - df_int_time.groupby(['mask', 'image', 'channel', 'condition']).avg_int.transform('min'))
+df_int_time['norm_median_int'] = (df_int_time['median_int'] - df_int_time.groupby(['mask', 'image', 'channel', 'condition']).median_int.transform('min')) / (df_int_time.groupby(['mask', 'image', 'channel', 'condition']).median_int.transform('max') - df_int_time.groupby(['mask', 'image', 'channel', 'condition']).median_int.transform('min'))
 
 # %%
-# plot the normalized intensity values
-fig, ax = plt.subplots(figsize=(10, 6))
-for mask, group in df_int_time.groupby('mask'):
-    ax.plot(group.time_point, group.median_int, label=mask)
-    ax.legend(title = 'Mask')
-plt.show()
-# %%
+import seaborn as sns
+g = sns.FacetGrid(df_int_time, col="channel", hue='condition')
+g.map(sns.lineplot, 'time_point', 'norm_avg_int') #hue='channel' #(data=df_int_time,
 
+
+# %%
+img_t = czifile.imread(img_files[0])
+img_t = img_t[0,0,0,:,0,:,:,0] 
+img_t_diff = img_t[1:,:,:] - img_t[:-1,:,:] 
+# sum the first dimension of img_t_diff and plot the sum
+plt.imshow(img_t_diff.max(axis=(0)))
+plt.colorbar()
+# %%
+img_t = czifile.imread(img_files[1])
+img_t = img_t[0,0,0,:,0,:,:,0] 
+img_t_diff = img_t[1:,:,:] - img_t[:-1,:,:] 
+# sum the first dimension of img_t_diff and plot the sum
+plt.imshow(img_t_diff.sum(axis=(0)))
+plt.colorbar()
+# %%
