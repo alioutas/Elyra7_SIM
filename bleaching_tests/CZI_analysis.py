@@ -315,8 +315,7 @@ for i in range(len(unique_chan)):
 
 #%%
 # Count the number of rows in each group
-for i in df_int_time['condition'].unique():
-    print(i)
-    print(df_int_time[df_int_time['condition'] == i].groupby(['condition','time_point']).size())
+for cond in df_int_time['condition'].unique():
+    print(cond, df_int_time[df_int_time['condition'] == cond][df_int_time['time_point'] == 0][df_int_time['channel'] == 405]['mask'].value_counts().sum())
 
-# %%
+
