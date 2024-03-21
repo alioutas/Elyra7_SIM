@@ -313,5 +313,10 @@ for i in range(len(unique_chan)):
              ha = 'left', va = 'bottom')
 
 
+#%%
+# Count the number of rows in each group
+for i in df_int_time['condition'].unique():
+    print(i)
+    print(df_int_time[df_int_time['condition'] == i].groupby(['condition','time_point']).size())
 
 # %%
