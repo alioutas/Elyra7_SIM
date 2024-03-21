@@ -26,7 +26,6 @@ import pandas as pd
 from glob import glob 
 import os
 
-from czi_analysis_utils import create_masks
 from tqdm import tqdm
 
 
@@ -227,9 +226,6 @@ df_int_time = pd.DataFrame({
 # read in the results df
 df_int_time = pd.read_csv('/Volumes/Genetics/Wu_Lab-Vutara/Experiments/Eunice/Elyra_Eunice/WGI/analysis_output/20240319_df_int_time_raw.csv')
 
-#%%
-
-
 
 #%%
 # normalize the intensity values min max for each mask
@@ -243,18 +239,13 @@ df_int_time['norm_median_int'] = (df_int_time['median_int'] - df_int_time.groupb
 df_int_time['norm_avg_int'] = (df_int_time['norm_avg_int'] - df_int_time.groupby('condition').norm_avg_int.transform('min')) / (df_int_time.groupby('condition').norm_avg_int.transform('max') - df_int_time.groupby('condition').norm_avg_int.transform('min'))
 df_int_time['norm_median_int'] = (df_int_time['norm_median_int'] - df_int_time.groupby('condition').norm_median_int.transform('min')) / (df_int_time.groupby('condition').norm_median_int.transform('max') - df_int_time.groupby('condition').norm_median_int.transform('min'))
 
-
-#%%
-# sns.kdeplot(data=df_int_time, x="avg_int", hue="condition", log_scale=True, col = 'channel')
-g = sns.FacetGrid(df_int_time, col="channel", hue='condition')
-# g.map(sns.lineplot, 'time_point', 'norm_avg_int') #hue='channel' #(data=df_int_time,
-g.map(sns.kdeplot, "time_point", "norm_avg_int", ci=None)
-g.add_legend()
-
+df_int_time['time'] = df_int_time['time_point'] * 0.8657 # 50 ms per time point
 # %%
 g = sns.FacetGrid(df_int_time, col="channel", hue='condition')
-g.map(sns.lineplot, 'time_point', 'norm_avg_int') #hue='channel' #(data=df_int_time,
+g.map(sns.lineplot, 'time', 'norm_avg_int') #hue='channel' #(data=df_int_time,
 # g.map(sns.regplot, "time_point", "norm_avg_int", ci=None)
+g.set_ylabels('Normalized average intensity')
+g.set_xlabels('Time (s)')
 g.add_legend()
 g.fig.suptitle(f'Normalized average intensity for {groups}', y = 1.2)
 
@@ -271,7 +262,7 @@ for condition in df_int_time['condition'].unique():
         # get the data for the condition and channel
         data = df_int_time[(df_int_time['condition'] == condition) & (df_int_time['channel'] == channel)]
         # Sample data - Replace this with your actual fluorescence intensity data
-        time = data['time_point'] 
+        time = data['time'] 
         intensity = data['norm_avg_int']
 
         # Define exponential decay function
@@ -311,6 +302,7 @@ sns.stripplot(data = half_times,
 
 #change font size
 plt.xticks(fontsize=12)
+plt.ylabel('Half life (s)', fontsize=12)
 
 # add text annotation to the max value per channel an condition
 unique_chan = half_times.channel.unique()
@@ -321,3 +313,5 @@ for i in range(len(unique_chan)):
              ha = 'left', va = 'bottom')
 
 
+
+# %%
