@@ -32,7 +32,7 @@ from tqdm import tqdm
 # %%
 
 # find all folders in the following path
-path = "/Volumes/Genetics/Wu_Lab-Vutara/Experiments/Eunice/Elyra_Eunice/WGI/bleaching_test_new"
+path = "/PATH/TO/DATA"
 folders = [os.path.join(path, f) for f in os.listdir(path) if os.path.isdir(os.path.join(path, f))]
 
 # Set the model parameters
