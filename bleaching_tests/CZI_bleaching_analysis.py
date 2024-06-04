@@ -17,7 +17,7 @@ from skimage.measure import find_contours
 
 from scipy.optimize import curve_fit
 
-
+import plotly.express as px
 
 
 import numpy as np
@@ -32,7 +32,7 @@ from tqdm import tqdm
 # %%
 
 # find all folders in the following path
-path = "/PATH/TO/DATA"
+path = "/Volumes/Genetics/Wu_Lab-Vutara/Experiments/Eunice/Elyra_Eunice/WGI/bleaching_test_new"
 folders = [os.path.join(path, f) for f in os.listdir(path) if os.path.isdir(os.path.join(path, f))]
 
 # Set the model parameters
@@ -48,6 +48,8 @@ for folder in folders:
         conditions.append('Sorb70VE')
     elif 'PCA' in folder:
         conditions.append('PCA_PCD')
+    elif 'Glox' in folder:
+        conditions.append('GLOX')
     else:
         conditions.append('unknown')
 
@@ -219,13 +221,16 @@ df_int_time = pd.DataFrame({
               })
 
 # save the df
-# df_int_time.to_csv('/Volumes/Genetics/Wu_Lab-Vutara/Experiments/Eunice/Elyra_Eunice/WGI/analysis_output/20240320_df_int_time_raw.csv')
+# df_int_time.to_csv('/Volumes/Genetics/Wu_Lab-Vutara/Experiments/Eunice/Elyra_Eunice/WGI/analysis_output/20240529_df_int_time_raw.csv')
 
 
 #%%
 # read in the results df
-df_int_time = pd.read_csv('/Volumes/Genetics/Wu_Lab-Vutara/Experiments/Eunice/Elyra_Eunice/WGI/analysis_output/20240319_df_int_time_raw.csv')
+# df_int_time = pd.read_csv('/Volumes/Genetics/Wu_Lab-Vutara/Experiments/Eunice/Elyra_Eunice/WGI/analysis_output/20240319_df_int_time_raw.csv')
 
+
+# from the df_int_time remove the observations with condition == PCA_PCD and image number 11,12,13,14,15,16,17,19,and 20
+# df_int_time = df_int_time[~((df_int_time['condition'] == 'PCA_PCD') & (df_int_time['image'].isin([11,12,13,14,15,16,17,19,20])))]
 
 #%%
 # normalize the intensity values min max for each mask
@@ -250,7 +255,7 @@ g.add_legend()
 g.fig.suptitle(f'Normalized average intensity for {groups}', y = 1.2)
 
 #%%
-# Calculate hald life of measured intensities for each condition and channel
+# Calculate half life of measured intensities for each condition and channel
 half_time_df = []
 I0_df = []
 k_df = []
@@ -318,4 +323,14 @@ for i in range(len(unique_chan)):
 for cond in df_int_time['condition'].unique():
     print(cond, df_int_time[df_int_time['condition'] == cond][df_int_time['time_point'] == 0][df_int_time['channel'] == 405]['mask'].value_counts().sum())
 
+#%%
+#plot as single lines each individual mask and different PCA_PCD conditions
 
+# df_filt = df_int_time.loc[(df_int_time['condition'] == 'PCA_PCD') & (df_int_time['channel'] == 405) & (df_int_time['image'].isin([1,2,3,4,5,6,9,10,18]))]
+# #%%
+# fig = px.line(df_filt, x="time_point", y="norm_avg_int", color='image', line_group='image', hover_name='mask', title='PCA_PCD 405 channel')
+# # # y log scale
+# # fig.update_yaxes(type="log")
+# fig.show()
+
+# %%
